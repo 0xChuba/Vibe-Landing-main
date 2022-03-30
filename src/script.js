@@ -1,0 +1,230 @@
+import './style.css'
+import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import * as dat from 'lil-gui'
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
+
+
+/**
+ * Base
+ */
+// Debug
+const gui = new dat.GUI()
+
+// Canvas
+const canvas = document.querySelector('canvas.webgl')
+
+// Scene
+const scene = new THREE.Scene()
+
+// Font 
+const fontLoader = new FontLoader()
+
+fontLoader.load(
+    '/fonts/Enter_Bold.json',
+    (font) =>
+    {
+        const textGeometry = new TextGeometry(
+            'V I B E',
+            {
+                font: font,
+                size: 0.5,
+                height: 0.2,
+                curveSegments: 12,
+                bevelEnabled: true,
+                bevelThickness: 0.03,
+                bevelSize: 0.02,
+                bevelOffset: 0,
+                bevelSegments: 5
+
+            }
+        )
+        const textMaterial = new THREE.MeshBasicMaterial({ 
+            // matcap: matcapTexture
+            
+        })
+        textGeometry.center()
+        const text = new THREE.Mesh(textGeometry, textMaterial)
+        
+        scene.add(text)
+    }
+)
+
+
+/**
+ * Galaxy 
+ */
+const parameters = {} // store parameters in this array i.e. color, size  
+parameters.count = 10000  // 1000 particles 
+parameters.size = 0.01 // size of particle 
+parameters.radius = 5 // radius of the galaxy circle 
+parameters.branches = 3 // how many of the lines you want 
+parameters.spin = 1 // spin 
+parameters.randomness = 0.2 
+parameters.randomnessPower = 5
+parameters.insideColor = '#ff6030'
+parameters.outsideColor = '#1b3984'
+// 
+let geometry = null 
+let material = null 
+let points = null 
+
+const generateGalaxy = () =>
+{
+    // destroy old galaxy when adjusting params 
+    if (points !== null) 
+    {
+        geometry.dispose() 
+        material.dispose() 
+        scene.remove(points) // because points is added to the scene
+    }
+
+    // create geometry  
+    geometry = new THREE.BufferGeometry()
+
+    // create position 
+    const positions = new Float32Array(parameters.count * 3) // special array 
+
+    // create color 
+    const colors = new Float32Array(parameters.count * 3)
+
+    // instance of threejs color 
+    const colorInside = new THREE.Color(parameters.insideColor)
+    const colorOutside = new THREE.Color(parameters.outsideColor)
+
+
+
+    for (let i = 0; i < parameters.count; i++)
+    {
+        //Position
+        const i3 = i * 3 // vertices 
+
+        const radius = Math.random() * parameters.radius   // get random particles on the radius
+        const spinAngle = radius * parameters.spin  
+        const brancheAngle = (i % parameters.branches) / parameters.branches * Math.PI * 2
+        
+        const randomX = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1)
+        const randomY = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1)
+        const randomZ = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1)
+
+
+        positions[i3 + 0] = Math.cos(brancheAngle + spinAngle) * radius + randomX// x
+        positions[i3 + 1] = randomY // y 
+        positions[i3 + 2] = Math.sin(brancheAngle + spinAngle) * radius + randomZ// z
+        
+        // Mix Color 
+        const mixColor = colorInside.clone()
+        mixColor.lerp(colorOutside, radius / parameters.radius)
+
+        colors[i3 + 0] = mixColor.r
+        colors[i3 + 1] = mixColor.g
+        colors[i3 + 2] = mixColor.b
+    }
+
+    // set position attribute 
+    geometry.setAttribute(
+        'position',
+        new THREE.BufferAttribute(positions, 3)
+    )
+
+    // set color attribute  
+    geometry.setAttribute(
+        'color',
+        new THREE.BufferAttribute(colors, 3)
+    )
+
+    // create points material 
+    material = new THREE.PointsMaterial({
+        size: parameters.size,
+        sizeAttenuation: true, 
+        depthWRite: false, 
+        blending: THREE.AdditiveBlending,
+        vertexColors: true
+
+    })
+
+
+   // Points 
+    points = new THREE.Points(geometry, material)
+    scene.add(points)
+}
+
+generateGalaxy()
+gui.add(parameters, 'count').min(100).max(100000).step(100).onFinishChange(generateGalaxy)
+gui.add(parameters,'size').min(0.001).max(0.1).step(0.001).onFinishChange(generateGalaxy)
+gui.add(parameters,'radius').min(0.1).max(20).step(0.01).onFinishChange(generateGalaxy)
+gui.add(parameters,'branches').min(1).max(20).step(1).onFinishChange(generateGalaxy)
+gui.add(parameters,'spin').min(-5).max(5).step(0.001).onFinishChange(generateGalaxy)
+gui.add(parameters,'randomness').min(0).max(2).step(0.001).onFinishChange(generateGalaxy)
+gui.add(parameters,'randomnessPower').min(1).max(10).step(0.001).onFinishChange(generateGalaxy)
+gui.addColor(parameters,'insideColor').onFinishChange(generateGalaxy)
+gui.addColor(parameters,'outsideColor').onFinishChange(generateGalaxy)
+
+/**
+ * Sizes
+ */
+const sizes = {
+    width: window.innerWidth,
+    height: window.innerHeight
+}
+
+window.addEventListener('resize', () =>
+{
+    // Update sizes
+    sizes.width = window.innerWidth
+    sizes.height = window.innerHeight
+
+    // Update camera
+    camera.aspect = sizes.width / sizes.height
+    camera.updateProjectionMatrix()
+
+    // Update renderer
+    renderer.setSize(sizes.width, sizes.height)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+})
+
+/**
+ * Camera
+ */
+// Base camera
+const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
+// camera.position.x = 
+camera.position.y = 0.5
+camera.position.z = 3
+scene.add(camera)
+
+// Controls
+const controls = new OrbitControls(camera, canvas)
+controls.enableDamping = true
+
+/**
+ * Renderer
+ */
+const renderer = new THREE.WebGLRenderer({
+    canvas: canvas
+})
+renderer.setSize(sizes.width, sizes.height)
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+/**
+ * Animate
+ */
+const clock = new THREE.Clock()
+
+const tick = () =>
+{
+    const elapsedTime = clock.getElapsedTime()
+    points.rotation.y = elapsedTime * 0.03
+
+    // Update controls
+    controls.update()
+
+    // Render
+    renderer.render(scene, camera)
+
+    // Call tick again on the next frame
+    window.requestAnimationFrame(tick)
+}
+
+tick()
