@@ -1,4 +1,4 @@
-# Three.js Journey
+# Vibe Landing in The Galaxy
 
 ## Setup
 Download [Node.js](https://nodejs.org/en/download/).
